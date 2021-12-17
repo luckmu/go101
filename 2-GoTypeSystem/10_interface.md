@@ -39,4 +39,28 @@ non-interface value is boxed in the interface value:
     var blk interface{} // nil & blank interface
     var spk Speaker // nil & not-blank interface
     ```
-    
+
+non-interface value is boxed into an interface value, Go 运行时分析两个值类型的实现关系，并将关系存储到这个接口值内。每一对这样的类型，实现关系信息最多构建一次，会被缓存在内存的一个全局映射中。所以全局映射中的条目永不减少。事实上，一个非零接口值在内部只是使用一个指针字段来引用着此全局映射中的一个实现关系信息条目。
+
+对于一个非接口和接口类型对，实现关系包括两部分内容：
+
++  动态类型（此非接口类型）的信息
++ 一个方法表（切片类型），存储了所有此接口类型指定的并且为此非接口类型（动态类型）声明的方法
+
+[1. polymorphism](https://gfw.go101.org/article/interface.html#polymorphism)
+
+调用一个接口值的方法实际上将调用此接口值的动态值对应的方法，一个接口值通过包裹不同的动态类型的动态值来表现出不同的行为，称为多态。
+
+[2. reflection](https://gfw.go101.org/article/interface.html#reflection)
+
+一个接口值中存储的动态类型信息可以被用来检视此接口值的动态值和操作此动态值所引用的值，这称为反射。
+
+Go 内置反射机制：断言（type assertion）和 type-switch 流程控制
+
++ compile-time check (src type must implement dst type, dst = src)
+  + inter = non-inter
+  + inter1 = inter2
++ runtime assert
+  + inter.(non-inter)
+    + non-inter must implement inter
+  + inter1 = inter2
