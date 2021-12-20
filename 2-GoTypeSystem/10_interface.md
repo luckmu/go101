@@ -59,8 +59,31 @@ Go 内置反射机制：断言（type assertion）和 type-switch 流程控制
 
 + compile-time check (src type must implement dst type, dst = src)
   + inter = non-inter
+    + non-inter implement inter
   + inter1 = inter2
+    + inter2 implement inter1
 + runtime assert
   + inter.(non-inter)
     + non-inter must implement inter
   + inter1 = inter2
+    + inter2 may not implement inter1, dynamic value of inter2 may implement inter1
+
+i.(T)
+
++ T is non-interface type, dynamic value of i is the T, success otherwise failed. result is **a copy of dynamic value**.
++ T is interface type, dynamic value exists and the value implements T, success otherwise failed. result is **copy of T which boxing the dynamic type of i**.
+
+type-switch
+
+```go
+switch aSimpleStatement; v := x.(type) {
+case TypeA:
+    ...
+case TypeB:
+    ...
+case nil:
+    ...
+default:
+    ...
+}
+```
