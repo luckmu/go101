@@ -1,5 +1,10 @@
 # type unsafe pointers
 
++ *uintptr* 和 *unsafe.Pointer* 互相转换; *unsafe.Pointer* 和*其他类型指针*互相转换
++ `unsafe.Add(ptr Pointer, len IntegerType) Pointer` 等效于运算 `uintptr`
++ `reflect.StringHeader` & `reflect.SliceHeader`
++ uintptr(unsafe.Pointer(&v))，若不注意 v 的生命周期，很容易导致其被 gc 后使用这个无效的整型地址
+
 ```go
 type Pointer *ArbitraryType
 ```
@@ -74,3 +79,24 @@ facts
     syscall.Syscall(SYS_READ, uintptr, uintptr, uintptr)
     ```
 + pattern5. 将 reflect.Value.Pointer 或者 reflect.Value.UnsafeAddr 方法的 uintptr 返回值立即转换为非类型安全指针
+
++ pattern6. 将一个 **reflect.SliceHeader** 或者 **reflect.StringHeader** 值的 Data 替换为非类型安全指针，以及其逆转换
+    ```go
+    func main() {
+        // ...
+        var hdr reflect.StringHeader
+        hdr.Data = uintptr(unsafe.Pointer(new([5]byte)))
+        // ... 新开辟数组已经没有引用，可以被回收
+        hdr.Len = 5
+        s := *(*string)(unsafe.Pointer(&hdr)) // 不安全的！
+    }
+
+    func ByteSlice2Str(bs []byte) (str string) {
+        // 在参数和返回值处保证对象的引用
+        slicehdr := (*reflect.SliceHeader)(unsafe.Pointer(&bs))
+        strhdr := (*reflect.StringHeader)(unsafe.Pointer(&str))
+        strhdr.Data = slicehdr.Data
+        strhdr.Len = slicehdr.Len
+        return
+    }
+    ```
