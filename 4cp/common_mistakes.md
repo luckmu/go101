@@ -31,10 +31,10 @@ func longrunningi(msgs <-chan string) {
             return
         case msg := <-msgs:
             fmt.Println(msg)
-
-            // 处理时长超过了 time.Minute
-            // 避免下次 loop 直接 return, 需要
+            // while processing, time.Time is sent into timer.C
+            // must be expired rather than stopped
             if !timer.Stop() {
+                // clear the cache
                 <-timer.C
             }
         }
