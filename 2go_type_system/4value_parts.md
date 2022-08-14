@@ -1,5 +1,27 @@
 # value parts
 
+```golang
+// 间接引用:
+// 1. 指针包裹类型; x.y; (x, y)
+// 2. 链式引用: x.y, y.z; (x, z)
+
+// 1. _slice 和 _string 是指针包裹类型, 简述内部结构?
+//   _slice: unsafe.Pointer, len, cap
+//   _string: *byte, len
+// 2. 空接口和非空接口在结构上的不同?详细?
+//   空接口:
+//     + 动态类型: *_type
+//     + 动态值: unsafe.Pointer
+//   非空接口:
+//     + 动态类型信息:
+//       + 动态类型: *_type
+//       + 方法: []*_function
+//     + 动态值: unsafe.Pointer
+// 3. Go中每个赋值操作(包括函数调用传参等)
+//     都是1个值的浅复制过程(假设源值和目标值的类型相同)。
+// 
+```
+
 2 categories of Go types:
 
 |types whose values each is only hosted *on one single memory block*|types whose values each may be hosted *on multiple memory blocks*|

@@ -1,5 +1,26 @@
 # string
 
+```golang
+// 移位操作符在编译阶段估值的条件 常量
+_ = float64 = 1 << m // 根据 m 是否常量: float64(1) << m; float(1 << m)
+// len(s) 是常量表达式, 但 len(s[:]) 不是
+const s = "abc.def."
+var a byte = 1 << len(s) / 128
+var b byte = 1 << len(s[:]) / 128
+fmt.Println(a, b) // 2, 0
+// 等效于:
+//   byte(1 << len(s) / 128)
+//   byte(1) << len(s[:]) / 128, overflow so it's 0
+// len(aString[start:end]) 和 aString 共享1部分底层 bytes
+
+// 字符, 码点, 字节
+// 1个字符由若干码点表示(如, 1英文字符对应1码点, 1中文字符对应1码点, ...)
+// 1个码点由若干字节表示(如, 1英文码点对应1字节, 1中文码点对应3字节, ...)
+// 英文: 1 - 1 - 1
+// 中文: 1 - 1 - 3
+// 码点在Go中用rune表示, rune是int32的别名
+```
+
 ```go
 type _string struct {
     elements *byte // underlying bytes
@@ -7,78 +28,72 @@ type _string struct {
 }
 ```
 
-len(s) is a constant expression, whereas len(s[:]) is not; lead to different evaluation timing
+***编译时估值函数***
++ `unsafe.Sizeof`, `unsafe.Alignof`, `unsafe.Offsetof`
++ `len`, `cap`:
+  + 字符串常量 `len(s)` 总是编译时估值
+  + slice, array: 表达式不含数据接收操作和结果为非常量的函数调用, 总是在编译时估值
++ `real`, `imag`: ...
++ `complex`: ...
 
-## string, []byte, []rune
+***字符串相关的类型转换***
+1. 1个字符串值可以被显式转换为1个字节切片, 反之亦然
+2. 1个字符串值可以被显式转换为1个码点切片, 反之亦然
 
-2 string related conversions (string -> []byte, string -> []rune):
+***进行字符串和字节切片转换时, 两边都是深拷贝(意味着需要重新开辟1块同样大小的内存), 原因是字节切片是可以修改的, 字符串是不可修改的, 所以2者不能共享底层字节序列***
 
-1. A string value can be explicitly converted to a byte slice, and vice versa. A byte slice's underlying type is `[]byte` (a.k.a., `[]uint8`)
-2. A string value can be explicitly converted to a rune slice, and vice versa. A rune slice's underlying type is `[]rune` (a.k.a., `[]int32`)
+***字符串和字节切片转换的编译器优化***
+```golang
+// 1. for-range 中, 跟随 `range` 的 []byte -> string
+for i, b := range []byte(str) {
+    _, _ = i, b
+}
 
-## string, []byte: deep copy
+// 2. map 中读取元素时, []byte -> string
+m[string(key)] = "value"    // 写 map, 没有优化, 需要 deep copy
+fmt.Println(m[string(key)]) // 读 map, 优化, 不需要 deep copy
 
-string <-> []byte is a **deep copy**, because eles in []slice is mutable but eles in string is immutable.
+// 3. 比较表达式中的 []byte -> string, 不需要 deep copy
+if string(x) != string(y) {
 
-string <-> []byte, compiler optimizations
+    // 4. 字符串衔接(至少含1个非空字符串常量), []byte -> string, 不需要 deep copy
+    s = (" " + string(x) + string(y))[1:] // 不需要 deep copy, 含至少1个非空字符串常量
+    s = string(x) + string(y)             // 需要 deep copy
+}
+```
 
-+ string -> []byte, follows the `range` in `for-range` loop (e.g., `for i, b := range []byte(str)`)
-+ []byte -> string, which is used as **map key in map element retrieval** indexing syntax (e.g., `m[string([]byte{'k'})]`)
-+ []byte -> string, which is used in **comparison** (e.g., `if string([]byte{'x'}) != string([]byte{'y'})`)
-+ []byte -> string, which is used in string concatenation, and **at least one** of concatenation values is a **non-blank string constant** (e.g., `s := (" " + string([]byte{1023: 'x'} + string([]byte{1023: 'y'})))[1:]`)
+**`for-range`跟随字符串, 遍历其中的码点(int32, 而非字节元素)**
 
-## []byte, []rune
+**那么如何遍历字符串中的字节元素呢?**
+```golang
+// 1. 
+for i := 0; i < len(s); i++ {
+    _ = s[i]
+}
+// 2. 官方编译器, 这种效率更高!!!
+for _, b := range []byte(s) {
+    _ = b
+}
+```
 
-Go does not support []byte <-> []rune:
+**得到 s 中的字节数和码点数**
+```golang
+// 1. `for-range`
+// 2. `unicode/utf8`: utf8.RuneCountInString()
+// 3. len([]rune(str))
+//   法3编译器优化, 避免1个深拷贝, 使得以上3种方法效率相同, 时间复杂度均为O(n)
+```
 
-1. []byte <-> string <-> []rune, convenient but *not efficient* (2 deep copies are needed)
-2. unicode/utf8
-    + utf8.EncodeRune(), rune -> []byte
-    + utf8.DecodeRune(), []byte -> rune
-3. bytes.Runes(), []byte -> []rune
+***语法糖: 将字符串当作字节切片使用***
+```golang
+var bs []byte
+_ = append(bs, "sugar"...)
+```
 
-## for-range a string
-
-+ iterate the Unicode code points (as `rune` values), instead of bytes (**iterate runes**)
-
-    ```go
-    for i, rn := range s {}
-    ```
-
-+ 2 ways **iterate bytes**
-
-    ```go
-    var b byte
-    for i := 0; i < len(s) {
-        b = s[i]
-    }
-    // doesn't need a deep copy
-    // more effective
-    for i, b := range []byte(s) {}
-    ```
-
-len(s), for-range string-type, utf8.RuneCountInString, len([]rune(s)) -> all O(n)
-
-## string concatenation
-
-+ Sprintf/Sprint/Sprintln in the fmt package
-+ strings.Join()
-+ **bytes.Buffer** (e.g., var buf bytes.Buffer)
-+ **strings.Builder** (e.g., var builder strings.Builder)
-+ `+` operator, standard go compiler makes optimizations for string concatenations by the `+` operator, generally, using `+` is convenient and efficient if number of concatenated strings is known at compile time.
-
-## sugar: strings as []byte
-
-+ **StringType = append(ByteSlice, StringType...)**
-    e.g., _ = append([]byte{}, "sugar"...)
-+ **copy(ByteSlice, StringType)**
-    e.g., copy([]byte{}, "sugar")
-
-## string comparison (`==` & `!=`)
-
-+ **lengths are not equal (then O(1))**, the 2 strings must be not equal (no need to compare bytes)
-+ **underlying byte sequence pointers are equal**, comparison result is the same as comparing the lengths of the 2 strings **O(1)**; **otherwise** compare byte sequence **O(n)**
-
-2 equal strings, the time complexity of comparing them depends on **wether or not their underlying byte sequence pointers are equal**. If the two are **equal**, then the time complexity is **O(1)**, **otherwise** the time complexity is **O(n)**
-
-try to avoid comparing 2 long strings, if they don't share the same underlying byte sequence
+***字符串比较***
+```golang
+// 2个复杂度为O(1)的情况
+// 1. string 长度不相等
+// 2. 底层字节序列指针相等, 比较结果等于比较这两个字符串的长度
+// 所以, 尽量避免比较2个很长的不共享底层字节序列的相等的(或者几乎相等的)字符串
+```
