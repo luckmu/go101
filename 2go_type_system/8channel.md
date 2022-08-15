@@ -1,18 +1,45 @@
 # channel
 
-*并发编程*
+```golang
+// buffered & unbuffered channel? cap 0
+// 
+// 通道 recv, send 的几种情况?
+// Recvq <- (Buffer or Directly) <- Sendq
+//   Recvq: recv goroutines queue
+//   Sendq: send goroutines queue
+// 1. goroutine R 从非零且未关闭的通道接收数据
+//   1.1. 缓冲队列不为空: Recv空, Buffer pop, Sendq push to Buffer
+//   1.2. 缓冲队列为空: Sendq push(recv)
+//   1.3. 缓冲队列, 发送数据协程队列都为空: R block
+// 2. goroutine S 向非零且未关闭的通道发送数据
+//   2.1. 接收数据协程队列不为空: Buffer空, Recvq pop R, S send to R
+//   2.2. 接收数据协程队列为空, 缓冲队列没满: S send to Buffer
+//   2.3. 接收数据协程队列为空, 缓冲队列已满: S block
+// 3. 协程成功获取到1个非零且未关闭的通道的锁并且准备关闭这个通道
+//   3.1. 接收数据协程队列不为空: Buffer空, Recvq 中协程被依次弹出, 接收1个零值, 恢复运行状态
+//   3.2. 发送数据协程队列不为空: 
+v = <-ch
+v, sentBeforeClosed = <-ch
+```
 
-`chan` T : `chan<-` T & `<-chan` T
+***通道含底层部分, 赋值后共享底层数据, 比较这两个通道结果为`true`***
 
-*unbuffered channel* & *buffered channel*: *容量是否为 0*
+***通道元素值的传递都是复制过程(只复制直接部分)***
 
-operations:
-
-+ send: `ch <- v`
-+ recv: `<- ch`
-+ close: `close(ch)`
-+ capacity: `cap(ch)`
-+ length: `len(ch)`
+***`for-range`用在通道(不断从channel接收数据, 直到通道关闭且Buffer为空), 只允许出现1个循环变量***
+```golang
+// 以下两个表达式等价
+for v := range aChannel {
+    // using v
+}
+for {
+    v, ok := <-aChannel
+    if !ok {
+        break
+    }
+    // using v
+}
+```
 
 categories:
 
@@ -20,7 +47,7 @@ categories:
 2. **non-nil closed channel**
 3. **non-nil not-closed channel**
 
-|op|nil channel|non-nil closed channel|non-nil not-closed channel|
+|操作|零值nil通道|非零值已关闭通道|非零值未关闭通道|
 |:-:|:-:|:-:|:-:|
 |close|panic|panic|closed **(C)**|
 |send|forever block|panic|block or send **(B)**|
