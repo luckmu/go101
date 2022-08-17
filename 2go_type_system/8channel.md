@@ -41,6 +41,28 @@ for {
 }
 ```
 
+***`select-case`用法***
+```golang
+select {} // select 和 {} 之间无任何表达式, 这个表达式会永久阻塞
+// select 选择分支顺序随机
+// 所有 case 操作阻塞的情况, 若 default 存在, 执行 default; 否则将当前协程推入所有
+//   阻塞操作相关通道的发送数据协程队列或接收数据协程队列
+```
+
+***`select-case` 流程控制实现机理***
+1. 将所有`case`中涉及*通道表达式*和*发送值表达式*从上到下, 从左到右顺序估值
+2. 所有**分支随机排序**; `default`分支**总是排最后**, case 中可能有相同的 `channel`
+3. 根据通道 address 进行排序(**前N个通道不重复, 此为通道锁顺序**, 逆序即为逆通道锁顺序)
+4. 通道锁顺序获取相关通道的锁
+5. 按第2步检查分支顺序: </br>5.1. `case`分支, 向已关闭通道发送数据, 逆序解锁并在当前协程产生恐慌</br>5.2. `case`分支, 且非阻塞, 逆序解锁并执行相应`case`分支代码块</br>5.3. `default`分支, 逆序解锁并执行该`default`分支代码
+6. 将当前协程推入每个`case`相应的`发送数据协程队列`或`接收数据协程队列`(当前协程可能被多次推入同1`channel`的这两个队列)
+7. 使前协程阻塞并逆序解锁所有`channel`
+8. ..., 当前协程阻塞, 等待其它协程通过通道操作唤醒当前协程, ...
+9. 当前协程被唤醒(通道关闭或数据发送/接收操作), 某`case`操作与之对应, 当前协程从相应`case`相关通道的`发送/接收数据协程队列`中弹出
+10. 按3步中通道锁顺序获取锁
+11. 将当前协程从各`case`对应通道的`发送/接收数据协程队列`中移除</br>11.1. 如果当前协程是被通道关闭操作唤醒, 跳到第5步</br>11.2. 数据发送/接收操作唤醒, 相应`case`在第9步已经知道, 逆序解锁并执行此`case`代码块
+12. 完毕
+
 categories:
 
 1. **nil channel**
@@ -118,3 +140,12 @@ recvq <- (buffer) <- sendq
 `sendq.first` and `recvq.first` cannot be the same
 
 cannot directly block the main goroutine (as the first recv, send goroutine, or it will block the main goroutine)
+```golang
+func main() {
+    ch := make(chan struct{})
+    go func() {
+        <-ch
+    }()
+    ch<-struct{}{}
+}
+```
