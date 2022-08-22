@@ -1,7 +1,98 @@
 # interface
 
-interface: set of *method prototypes*
++ Part 1 
+  + 接口? 方法集? 方法描述(method specification)?
++ Part 2
+  + 基本接口类型 & 非基本接口类型
+  + `nil`接口 & 包裹`nil`值的接口
+  + 空接口 & 非空接口的内部结构? 动态类型? 动态值?
++ Part 3
+  + 接口实现, 接口值包裹
++ Part 4: ***多态 & 反射***
+  + ***多态***: 形参为接口类型 & 实参为任意实现了该接口类型的类型(最终落实到非接口类型)
+  + ***反射***: 断言(`a.(T)`) & `type-switch`
 
+[1. 接口类型](#interface-type)
+
+[2. 基本接口类型](#basic-interface-types)
+
+[3. 实现和值包裹](#implementation--value-boxing)
+
+[4. 多态和反射](#polymorphism--reflection)
+
+## ***interface type***
+接口类型(interface type)内嵌若干接口元素(interface elements)
+
+接口元素:
++ 方法元素(method element): 方法描述(method specification); 接口类型中的方法描述不能用空标识符`_`命名
++ 类型元素(type element): 类型名称, 类型字面量形式, 近似类型, 类型并集
+
+将1个接口类型内嵌到另1个接口类型中, 等价于将前者元素(递归, 平铺)展开放入后者
+```golang
+type ReadWriteCloser = interface {
+    Read(buf []byte) (n int, err error)
+    Write(buf []byte) (n int, err error)
+    error
+    interface{ Close() error }
+}
+
+// is equal to
+interface {
+    Read(buf []byte) (n int, err error)
+    Write(buf []byte) (n int, err error)
+    Error() string
+    Close() error
+}
+```
+
+## ***basic interface types***
+
+基本接口类型指可以用作值类型的接口类型, 一个非基本接口类型只能用作(**自定义泛型中使用的**)约束接口类型(即类型约束)
+> Basic interface types are the interface types which may be used as value types. A non-basic interface type is also called a constraint-only interface type.
+
+```golang
+// e.g.
+// A basic interface.
+type aBasicInterface interface {
+    Read(buf []byte)  (n int, err error)
+    Write(buf []byte) (n int, err error)
+    Error() string
+    Close() error
+}
+
+// A non-basic interface.
+type Unsigned interface {
+    uint | uint8 | uint16 | uint32 | uint64 | uintptr
+}
+```
+
+
+### *`nil`接口值 & 包裹`nil`值的接口*
+```golang
+a := (interface{})(nil) // equal to nil
+b := (interface{})((*int)(nil)) // not equal to nil
+
+_ = a == nil // true
+_ = b == nil // false
+```
+### *`dynamic type` & `dynamic value`*
+```go
+// blank interface
+type _interface struct {
+    dynamicType *_type
+    dynamicValue unsafe.Pointer
+}
+// non-blank interface
+type _interface struct {
+    dynamicTypeInfo *struct {
+        dynamicTYpe *_type
+        methods []*_function
+    }
+    dynamicValue unsafe.Pointer
+}
+```
+
+## ***implementation & value boxing***
 
 [implementation](https://gfw.go101.org/article/interface.html#implementation)
 
@@ -21,31 +112,14 @@ non-interface value is boxed in the interface value:
 + non-interface value is **dynamic value** of the interface value
 + non-interface type is **dynamic type** of the interface value
 
-**blank interface & nil interface**
-
-+ nil
-    ```go
-    // non-nil - (*T, nil)
-    var i1 interface{} = (*T)(nil)
-    // nil - (nil, nil)
-    var i2 interface{}
-    // i1 == i2, false
-    ```
-+ blank
-    ```
-    type Speaker interface {
-        Speak() string
-    }
-    var blk interface{} // nil & blank interface
-    var spk Speaker // nil & not-blank interface
-    ```
-
 non-interface value is boxed into an interface value, Go 运行时分析两个值类型的实现关系，并将关系存储到这个接口值内。每一对这样的类型，实现关系信息最多构建一次，会被缓存在内存的一个全局映射中。所以全局映射中的条目永不减少。事实上，一个非零接口值在内部只是使用一个指针字段来引用着此全局映射中的一个实现关系信息条目。
 
 对于一个非接口和接口类型对，实现关系包括两部分内容：
 
 +  动态类型（此非接口类型）的信息
 + 一个方法表（切片类型），存储了所有此接口类型指定的并且为此非接口类型（动态类型）声明的方法
+
+## ***polymorphism & reflection***
 
 [1. polymorphism](https://gfw.go101.org/article/interface.html#polymorphism)
 
