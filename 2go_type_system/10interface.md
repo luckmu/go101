@@ -76,6 +76,7 @@ _ = a == nil // true
 _ = b == nil // false
 ```
 ### *`dynamic type` & `dynamic value`*
+接口的准确定义参考 [chapter13.reflection](./13reflection.md)
 ```go
 // blank interface
 type _interface struct {

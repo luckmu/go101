@@ -1,9 +1,11 @@
 # type unsafe pointers
 
-+ *uintptr* 和 *unsafe.Pointer* 互相转换; *unsafe.Pointer* 和*其他类型指针*互相转换
++ *uintptr* 和 *unsafe.Pointer* 互相转换; *unsafe.Pointer* 和*其他类型指针*互相转(`uintptr` <-> `unsafe.Pointer` <-> `*anyotherptr`)
 + `unsafe.Add(ptr Pointer, len IntegerType) Pointer` 等效于运算 `uintptr`
 + `reflect.StringHeader` & `reflect.SliceHeader`
-+ uintptr(unsafe.Pointer(&v))，若不注意 v 的生命周期，很容易导致其被 gc 后使用这个无效的整型地址
++ `uintptr(unsafe.Pointer(&v))`，若不注意 v 的生命周期，很容易导致其被 gc 后使用这个无效的整型地址
++ `unsafe.OffSetof()` & `unsafe.Sizeof()`: offset, `uintptr` 距类型起始地址的偏移; sizeof, 当前类型的大小(占多少地址); `uintptr(unsafe.Pointer(&T)) + offset + n*sizeof`
++ 保证变量声明周期的1个tip: 在形参处以变量+类型声明代替仅类型的声明(e.g. `aFunc(bs []byte)`)
 
 ```go
 type Pointer *ArbitraryType
@@ -14,8 +16,8 @@ type Pointer *ArbitraryType
 
 facts
 
-1. 非类型安全指针值是指针但uintptr是整数
-    + 每一个非零安全或不安全值都引用着另一个值，但是uintptr被看作一个整数，尽管它存储的是一个地址的数字表示。
+1. 非类型安全指针值是指针但`uintptr`是整数
+    + 每一个非零安全或不安全值都引用着另一个值，但是`uintptr`被看作一个整数，尽管它存储的是一个地址的数字表示。
 2. 不再使用的内存块的回收时间点是不确定的
 3. 一个值的地址在程序运行中可能改变
     + 当协程的栈大小改变时，开辟在此栈上的内存块需要移动，从而相应值的地址会改变
