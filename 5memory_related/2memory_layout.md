@@ -2,6 +2,9 @@
 
 ## Alignment Guarantee
 
++ 结构体 field：此类型的字段对齐保证（struct）
++ 其它：此类型的一般对齐保证（variable declaration，array element type, etc）
+
 In fact, each type has two alignment guarantees.
 + field alignment guarantees: one is for when it is used as field types of other (struct) types
 + general alignment guarantees: the other is for other cases (when it is used for variable declaration, array element type, etc)

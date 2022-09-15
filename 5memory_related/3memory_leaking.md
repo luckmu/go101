@@ -1,5 +1,17 @@
 # Memory Leaking Scenarios
 
+```go
+// 1. 子切片，子数组造成的暂时性内存泄漏（作参数然后赋值, s[:], sli[:]）
+// 2. 没有重置丢失切片中的指针，也是子切片引发
+s := []*int{new(int), new(int), new(int)}
+s1 := s[1:2:2]
+s[0], s[2] = nil, nil // 这是正确步骤
+// 3. **协程阻塞造成永久内存泄漏**
+// 4. 没有停止不再使用的 `time.Ticker`, `defer t.Stop()`
+// 5. 不当使用 `runtime.SetFinalizer()` 造成资源无法回收
+// 6. `defer` 导致的临时内存泄漏
+```
+
 ## Kind-of Memory Leaking Caused by Substrings
 
 ```go
