@@ -1,21 +1,4 @@
-# stack and heap and tri-color mark sweep garbage collection
-
-每个 goroutine 维护一个 stack，预申请的内存段，作为内存池供某些内存块从中开辟。每个 goroutine 初始栈大小 2KiB。运行时按需要增长、收缩。
-
-开辟在 goroutine 维护stack上的内存块只能被此 goroutine 内部使用，其它 goroutine 无法访问，同 goroutine 内可以不通过任何数据同步技术使用开辟在它stack上的内存块上的值部
-
-heap 是一个虚拟概念，每个程序只有一个heap，一般地，如果一个内存块没有开辟在stack上，我们说它是开辟在heap上。开辟在堆上的内存块可以被多个 goroutine 并发访问，需要的时候要对值部做同步。
-
-compiler 判断一个内存块在运行时会被多个 goroutine 访问，或不能断定此内存块是否只被一个 goroutine 访问，此内存块会被开辟在堆上。
-
-逃逸：局部声明的变量的某些值被开辟在堆上，称这些值和此局部变量逃逸到了堆上
-
-+ 某结构体的某字段逃逸到了堆上，则此整个结构体值也逃逸到堆上
-+ 某数组的某元素逃逸到堆上，则此整个数组也逃逸到堆上
-+ 某切片的某元素逃逸到堆上，切片中所有元素都将逃逸到堆上，但切片值的直接部分可能开辟在栈上
-+ 某值部v被某逃逸到堆上的值引用，此值部v也将逃逸到堆上
-
-## tri-color mark sweep garbage collection
+# tri-color mark sweep garbage collection
 
 [tri-color-hybrid-write-barrier-by-AceId](https://zhuanlan.zhihu.com/p/334999060)
 
