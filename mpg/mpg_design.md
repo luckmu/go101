@@ -33,20 +33,19 @@ P *idlep; // lock-free list
 M准备好执行Go代码时，必须从list中pop出1个P。当M结束Go代码执行时，push P到list中。所以M必须1个关联的P才能执行Go代码。
 
 ## Scheduling
-当G被created或become runnable时，被push到当前P的runnable goroutines list中。当P结束执行G，尝试从自身runnable goroutine list中pop1个G，若list为空，选择1个random victim（another P），尝试从它的runnable goroutine list中偷取一半的goroutines来执行。
+当G被created或become runnable时，被push到当前P的runnable goroutines list中。当P结束执行G，尝试从自身runnable goroutine list中pop1个G，若list为空，选择1个random victim（another P），尝试从它的runnable goroutine list中偷取一半的goroutines来执行。实际上:
++ localrunq
++ globalrunq
++ network poller
++ work stealing
 
 ## Syscalls/M Parking and Unparking
 当M创建1个new G，必须确认有其他的M（another M）来执行这个G（如果没有，肯定所有M都是busy）。同样地，当1个M进入syscall，必须确认有另外的M来执行Go代码。
 
-Spinning is 2-level:
-+ 类型1：idle的M，已经关联P，M自旋等待新的G
-+ 类型2：idle的M，没有可用的P，M自旋等待可用的P
-
-That means:
-1. p <= m? because M will spin for available P
-2. M&P >= G? because M with associated P will spin for new G
-
-At most `GOMAXPROCS` spinning M, because at most `GOMAXPROCS` M (which is equal to number of vCPUs).
+spinning is 2-level:<br/>
+(1). idle M&P, spins for new G<br/>
+(2). M spins for P<br/>
+there're at most `GOMAXPROCS` spinning M both (1) and (2)
 
 > Idle M's of type(1) do not block while there are idle M's of type(2)
 
